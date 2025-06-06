@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}-svc
+  labels:
+    app: {{ .Values.name }}
+  {{- if .Values.loadbalancer.annotations }}
+  annotations:
+    {{- toYaml .Values.loadbalancer.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.loadbalancer.type }}
+  type: {{ .Values.loadbalancer.type | default "ClusterIP" | quote }}
+  {{- else }}
+  type: "ClusterIP"
+  {{- end }}
+  ports:
+  - name: http
+    port: 80
+    targetPort: {{ .Values.containerPort }}
+    protocol: TCP
+  selector:
+    {{- toYaml .Values.matchLabels | nindent 4 }}

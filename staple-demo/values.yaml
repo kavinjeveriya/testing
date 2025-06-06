@@ -1,0 +1,92 @@
+name: staple-demo
+
+replicaCount: 3
+
+containerPort: 5000
+
+commands: []
+
+image:
+  repository: 895533345638.dkr.ecr.us-east-1.amazonaws.com/staple
+  pullPolicy: IfNotPresent
+  tag: latest
+
+imagePullSecrets: []
+
+nodeSelector:
+  intent: jenkins
+  kubernetes.io/arch: arm64
+annotations: []
+
+labels:
+  app: staple-demo
+
+matchLabels:
+  app: staple-demo
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 124Mi
+  limits:
+    cpu: 20m
+    memory: 250Mi
+volumeMounts:
+    - name: staple-demo-logs
+      mountPath: /var/staple-demo/logs/
+    
+sidecar:
+  enabled: true
+  name: fluentbit
+  image: fluent/fluent-bit
+  imagePullPolicy: IfNotPresent
+  ports: []
+  resources:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  volumeMounts:
+    - name: staple-demo-logs
+      mountPath: /var/staple-demo/logs/
+    - name: config
+      mountPath: /fluent-bit/etc/fluent-bit.conf
+      subPath: fluent-bit.conf
+    - name: config
+      mountPath: /fluent-bit/etc/turing_parser.conf
+      subPath: parser.conf
+volumes:
+  - name: staple-demo-logs
+    emptyDir: {}
+  - name: config
+    configMap:
+      name: staple-fb-cm 
+      defaultMode: 420
+
+loadbalancer:
+  type: ClusterIP
+
+ingress:
+  enabled: true
+  name: staple-demo-ing
+  namespace: nonprod
+  annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+      alb.ingress.kubernetes.io/healthcheck-path: /health
+      alb.ingress.kubernetes.io/healthcheck-protocol: HTTP 
+  paths:
+    - path: /
+      pathType: Prefix
+      service:
+        name: staple-demo-svc
+        port: 80
+
+fluentbit:
+  storagePath: /var/staple-demo/logs
+  inputPath: /var/staple-demo/logs/api.log
+  inputTag: dev_staple_demo_api_logs
+  clusterName: dev-staple-cluster

@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: staple-fb-cm
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: fluentbit
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush        1
+        Daemon       Off
+        Log_Level    info
+        Parsers_File turing_parser.conf
+        storage.path  {{ .Values.fluentbit.storagePath | default "/var/staple-demo/logs" }}
+        storage.backlog.mem_limit 10M
+        storage.max_chunks_up 4
+
+    [INPUT]
+        Name tail
+        Parser  json
+        Path {{ .Values.fluentbit.inputPath | default "/var/staple-demo/logs/api.log" }}
+        storage.type  filesystem
+        Mem_Buf_Limit 1MB
+        Buffer_Max_Size 10M
+        Buffer_Chunk_Size 5M
+        db request.db
+        db.sync full
+        Tag {{ .Values.fluentbit.inputTag | default "dev_staple_demo_api_logs" }} 
+        Skip_Long_Lines On     
+
+    [FILTER]
+        Name modify
+        Match {{ .Values.fluentbit.inputTag | default "dev_staple_demo_api_logs" }}
+        Add type {{ .Values.fluentbit.inputTag | default "dev_staple_demo_api_logs" }}
+
+    [FILTER]
+        Name modify
+        Match {{ .Values.fluentbit.inputTag | default "dev_staple_demo_api_logs" }}
+        Rename log message
+        Add k8s.cluster.name {{ .Values.fluentbit.clusterName | default "dev-staple-cluster" }}
+
+    [OUTPUT]
+        Name         forward
+        Match        {{ .Values.fluentbit.inputTag | default "dev_staple_demo_api_logs" }}
+        Host         fluentd.efk
+        Port         24224
+        Tag          {{ .Values.fluentbit.inputTag | default "dev_staple_demo_api_logs" }}
+
+  parser.conf: |
+    [PARSER]
+        Name        json
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S
